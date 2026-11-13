@@ -1,0 +1,27 @@
+{
+  "name": "lidar-guesser",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Jeu de devinette géographique à partir de l'ombrage LiDAR HD de l'IGN",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build:css": "tailwindcss -i css/main.css -o css/style.css --minify",
+    "dev": "npm run build:css && serve .",
+    "build": "npm run build:css && node scripts/build.js",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint js/ scripts/",
+    "check-lieux": "NODE_USE_ENV_PROXY=1 node scripts/check-lieux.js"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@tailwindcss/cli": "^4.1.11",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0",
+    "pngjs": "^7.0.0",
+    "prettier": "^3.9.10",
+    "serve": "^14.2.6",
+    "tailwindcss": "^4.1.11"
+  }
+}

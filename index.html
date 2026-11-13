@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LiDAR Relief Guessr – France</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="./css/style.css" />
+  </head>
+  <body class="h-screen overflow-hidden bg-neutral-100 text-neutral-900 antialiased">
+    <div class="mx-auto flex h-full max-w-[120rem] flex-col gap-3 px-4 py-3 sm:px-6">
+      <!-- En-tête : titre + compteurs -->
+      <header class="flex shrink-0 items-end justify-between gap-4">
+        <div>
+          <h1 class="text-xl font-semibold text-neutral-900 sm:text-2xl">LiDAR Relief Guessr</h1>
+          <p class="hidden text-sm text-neutral-600 sm:block">
+            Analysez l'ombrage du Modèle Numérique de Terrain (IGN LiDAR HD) et devinez la zone.
+          </p>
+        </div>
+
+        <div class="flex gap-6">
+          <div class="min-w-20">
+            <span class="text-xs text-neutral-500">Manche</span>
+            <p id="round-num" class="text-lg font-semibold tabular-nums">1 / 5</p>
+          </div>
+          <div class="min-w-20">
+            <span class="text-xs text-neutral-500">Score</span>
+            <p id="total-score" class="text-lg font-semibold tabular-nums">0 pts</p>
+          </div>
+        </div>
+      </header>
+
+      <div class="h-1 w-full shrink-0 overflow-hidden bg-neutral-300" aria-hidden="true">
+        <div id="progress-bar" class="h-full bg-neutral-800 transition-all duration-500"></div>
+      </div>
+
+      <!-- Cartes -->
+      <main class="grid min-h-0 flex-1 grid-rows-2 gap-3 lg:grid-cols-2 lg:grid-rows-1">
+        <section class="flex min-h-0 flex-col gap-2 border border-neutral-300 bg-white p-3">
+          <h2 class="text-sm font-medium text-neutral-800">
+            Relief LiDAR HD
+            <span class="font-normal text-neutral-500">(glissez pour faire pivoter la vue)</span>
+          </h2>
+          <div class="relative min-h-0 flex-1">
+            <div id="clue-map" class="game-map border border-neutral-300"></div>
+
+            <!-- Indice pendant la manche : vue 3D du relief, rotation seule.
+                 La carte 2D dessous fournit l'emprise et sert après la réponse. -->
+            <div
+              id="clue-3d"
+              class="absolute inset-0 z-[500] cursor-grab overflow-hidden border border-neutral-300 bg-[#b5b5b5] active:cursor-grabbing"
+            >
+              <p
+                id="clue-3d-status"
+                class="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-neutral-700"
+              ></p>
+            </div>
+
+            <!-- Rideau photo aérienne / LiDAR, affiché après la réponse -->
+            <div id="swipe" hidden>
+              <div
+                id="swipe-line"
+                class="pointer-events-none absolute inset-y-0 z-[1000] w-0.5 bg-white"
+                style="left: 50%"
+              ></div>
+              <div
+                class="absolute inset-x-2 bottom-2 z-[1000] flex items-center gap-2 border border-neutral-300 bg-white px-3 py-1.5 text-xs text-neutral-700"
+              >
+                <span>Photo</span>
+                <input
+                  id="swipe-range"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="50"
+                  aria-label="Rideau entre la photo aérienne et le LiDAR"
+                  class="flex-1 accent-neutral-800"
+                />
+                <span>LiDAR</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="flex min-h-0 flex-col gap-2 border border-neutral-300 bg-white p-3">
+          <h2 class="text-sm font-medium text-neutral-800">
+            Plan IGN
+            <span class="font-normal text-neutral-500">(cliquez pour placer votre repère)</span>
+          </h2>
+          <div class="min-h-0 flex-1">
+            <div id="guess-map" class="game-map border border-neutral-300"></div>
+          </div>
+        </section>
+      </main>
+
+      <!-- Action / résultat -->
+      <footer class="h-24 shrink-0">
+        <div id="round-bar" class="flex h-full flex-col justify-center gap-2">
+          <!-- Indices et validation regroupés dans une même barre d'actions -->
+          <div class="flex flex-wrap items-center gap-2">
+            <div id="hints" class="flex flex-wrap items-center gap-2"></div>
+            <span class="hidden h-6 w-px bg-neutral-300 sm:block" aria-hidden="true"></span>
+            <button
+              id="submit-btn"
+              type="button"
+              disabled
+              class="btn bg-neutral-900 px-4 py-1.5 text-sm enabled:hover:bg-neutral-700"
+            >
+              Valider
+            </button>
+          </div>
+          <ul
+            id="hint-reveals"
+            class="flex min-h-0 flex-col gap-0.5 overflow-y-auto text-sm text-neutral-700"
+          ></ul>
+        </div>
+
+        <div
+          id="result-box"
+          hidden
+          aria-live="polite"
+          class="flex h-full items-center justify-between gap-3 border border-neutral-300 bg-white px-4"
+        >
+          <div>
+            <p id="result-name" class="text-lg font-semibold"></p>
+            <p class="text-sm text-neutral-600">
+              <span id="result-category"></span> · <i id="result-hint" class="text-neutral-800"></i>
+            </p>
+            <p class="text-lg">
+              <b id="result-distance" class="tabular-nums"></b> km ·
+              <b id="result-points" class="tabular-nums"></b>
+              <span id="result-penalty" class="text-sm text-neutral-500"></span>
+            </p>
+          </div>
+          <button id="next-btn" type="button" class="btn bg-neutral-900 px-6 hover:bg-neutral-700">
+            Manche suivante
+          </button>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Écran de fin de partie -->
+    <dialog
+      id="end-dialog"
+      class="m-auto w-[min(28rem,calc(100%-2rem))] border border-neutral-300 bg-white p-6 text-neutral-900 backdrop:bg-neutral-900/50"
+    >
+      <h2 class="text-lg font-semibold">Partie terminée</h2>
+      <p class="mt-2 text-neutral-700">
+        Score final : <b id="end-score" class="text-xl tabular-nums text-neutral-900"></b>
+      </p>
+      <ol id="end-history" class="mt-4 flex flex-col gap-2 text-sm"></ol>
+      <button
+        id="replay-btn"
+        type="button"
+        class="btn mt-5 w-full bg-neutral-900 hover:bg-neutral-700"
+      >
+        Rejouer
+      </button>
+    </dialog>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+        }
+      }
+    </script>
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>
